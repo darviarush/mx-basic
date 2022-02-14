@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+
+# su-a — гибкое тело, так звали в Древнем Шумере кошек
+
+use common::sense;
+use open qw/:std :utf8/;
+
+use Carp;
+$SIG{__DIE__} = sub { die($_[0] =~ /\n\z/? @_: Carp::confess(@_)) }
+
+use Term::ReadLine;
+	
+my $kon = Term::ReadLine->new('SU-A');
+
+my $prompt = "𓂀 ";
+utf8::encode($prompt);
+my $OUT = $kon->OUT || \*STDOUT;
+while ( defined (my $line = $kon->readline($prompt)) ) {
+	utf8::decode($line) if !utf8::is_utf8($line);
+	
+	my $file = Sua->new(code=>$line, file=>"консоль", to=>"$ENV{HOME}/.cache/su-a/$$\$");
+	$file->compile;
+	$file->;
+	
+	
+	my ($prev, $err) = compile($line, "консоль", "$ENV{HOME}/.cache/su-a/$$\$");
+	$ok &&= ;
+	$kon->addhistory($line) if $ok;
+}
+
+
+
+# операторы: op => {prio, mtime}
+my %op;
+
+
+
+# Файл или участок кода
+package Sua;
+
+sub new {
+	my $cls = shift;
+	bless {
+		file => undef, 		# файл который компилим. У консоли - undef
+		code => undef,		# код
+		to => undef,		# директория в которую компилим
+		@_
+	}, ref $cls || $cls;
+}
+
+sub compile {
+	my ($self) = @_;
+	
+	$self->{prev} = 0;
+	
+	my $s = $self->{code} //= $self->rd;
+	
+	my @A;
+	
+	# лексика
+	while($code =~ m{
+		(?<dec> \d [\d_]* (\.\d [\d_]*)?) |
+		(?<str> "(\\\\|\\"|[^\n])*") |
+		
+		(?<space> [\ \t]+) |
+		(?<newline> \n)
+	}gxn) {
+		$self->error("не распознана лексема: `".substr($s, $self->{prev}, length($`))."`") if $self->{prev} != length($`);
+		$self->{prev} = length($`) + length($&);
+		
+		if(exists $+{dec}) {
+			my $s = $+{dec};
+			$s =~ s/_//g;
+			push @A, $s;
+		}
+	}
+	
+	$self->error("не распознана лексема: `".substr($s, $self->{prev})."`") if $self->{prev} != length($s);
+	
+	$self->wr(\@A);
+
+	return 0;
+}
+
+# считываем файл
+sub rd {
+	my ($self) = @_;
+	open my $f, "<:utf8", $self->{file} or $self->error("not open $self->{file}: $!");
+	read $f, my $buf, -s $f;
+	close $f;
+	return $buf;
+}
+
+# записываем файл
+sub wr {
+	my ($self) = @_;
+	open my $f, ">:utf8", $self->path2 or $self->error("not write $self->{path2}: $!");
+	read $f, my $buf, -s $f;
+	close $f;
+	return $buf;
+}
+
+# путь скомпиленного файла
+sub path2 {
+	my ($self) = @_;
+	$self->{path2} //= do {
+		my $f = $self->{file} // "kon";
+		my $path = "$self->{to}/";
+		
+	}
+}
+
+# ошибка
+sub error {
+	my ($self, $s) = @_;
+	die "$self->{file}:$self->{line}: $s\n";
+}
+
+1;
