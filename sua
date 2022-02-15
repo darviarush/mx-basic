@@ -5,42 +5,100 @@
 use common::sense;
 use open qw/:std :utf8/;
 
-use Carp;
-$SIG{__DIE__} = sub { die($_[0] =~ /\n\z/? @_: Carp::confess(@_)) }
-
 use Term::ReadLine;
-	
-my $kon = Term::ReadLine->new('SU-A');
+use Term::ANSIColor qw/colored RESET/;
+use Carp;
+$SIG{__DIE__} = sub { die($_[0] =~ /\n\z/? @_: Carp::confess(@_)) };
+ 
 
-my $prompt = "𓂀 ";
-utf8::encode($prompt);
-my $OUT = $kon->OUT || \*STDOUT;
+my $kon = Term::ReadLine::Gnu->new('SU-A');
+
+my $sua = Sua::Ed->new;
+
+my $MARKER = "🐈";
+my $prompt = RESET . colored($MARKER, "cyan");
+
+
+# Редактирование / https://tiswww.cwru.edu/php/chet/readline/readline.html
 while ( defined (my $line = $kon->readline($prompt)) ) {
-	utf8::decode($line) if !utf8::is_utf8($line);
+
+	next if $line =~ /^\s*$/;
 	
-	my $file = Sua->new(code=>$line, file=>"консоль", to=>"$ENV{HOME}/.cache/su-a/$$\$");
-	$file->compile;
-	$file->;
-	
-	
-	my ($prev, $err) = compile($line, "консоль", "$ENV{HOME}/.cache/su-a/$$\$");
-	$ok &&= ;
-	$kon->addhistory($line) if $ok;
+	$sua->make($line);
 }
 
 
+# Командная строка
+package Sua::Ed;
 
-# операторы: op => {prio, mtime}
-my %op;
-
-
-
-# Файл или участок кода
-package Sua;
+use Term::ANSIColor qw/colored/;
 
 sub new {
 	my $cls = shift;
 	bless {
+		INC => [".", "$::ENV{HOME}/.local/lib/sua"], 		# пути с исходниками
+		open => undef,										# открытый оператор
+		@_
+	}, ref $cls || $cls;
+}
+
+# обрабатывает строку
+sub make {
+	my ($self, $line) = @_;
+	
+	my $rex = qr//;
+	
+	if($line =~ /^\d/) {	# строка
+		print("Откройте файл командой ", colored("o", "red bold"), colored("pen", "blue bold"), " «оператор» «класс»\n"), return if !$self->{open};
+		
+	}
+	elsif($line =~ /^\s*(o|open)\s+/) {
+		
+	}
+	elsif($line =~ /^\s*(n|new)\s+(\S+)\s*$/) {
+		my $x = $2;
+		if($x =~ /^([a-z_]\w+)/)
+		my $path = "src/";
+		print "" if -e $path;
+		open my $f, "<:utf8" or do { print "\n" };
+	}
+	elsif($line =~ /^\s*(l|list)\s+/) {
+		
+	}
+	elsif($line =~ /^\s*(r|run)\s+/) {
+		
+	}
+	elsif($line =~ /^\s*(b|rebase)\s+/) {
+		
+	}
+	elsif($line =~ /^\s*(h|help|m|man)\s*$/) {
+		print "
+	${\colored($MARKER, 'green')}new swap¤¤ — создать метод
+	${\colored($MARKER, 'white')}open swap¤¤ — открыть метод
+	${\colored($MARKER, 'magenta')}open [-]% — открыть оператор
+	${\colored($MARKER, 'green')}new [-]%4 — создать оператор с приоритетом 4
+	${\colored($MARKER, 'yellow')}open % — открыть конструктор
+	
+	${\colored($MARKER, 'yellow')}inherit % from # — наследовать класс % от #
+
+	${\colored($MARKER, 'blue bold')}list [1][-10] — список строк
+	${\colored($MARKER, 'green')}10 — редактировать строку
+";
+	}
+	else {
+		print colored("?", "red"), "\n";
+	}
+}
+
+# Компилирует файл или участок кода
+package Sua::Compile;
+
+use Term::ANSIColor qw/colored/;
+
+sub new {
+	my $cls = shift;
+	bless {
+		ed => undef,		# редактор
 		file => undef, 		# файл который компилим. У консоли - undef
 		code => undef,		# код
 		to => undef,		# директория в которую компилим
@@ -58,7 +116,7 @@ sub compile {
 	my @A;
 	
 	# лексика
-	while($code =~ m{
+	while($s =~ m{
 		(?<dec> \d [\d_]* (\.\d [\d_]*)?) |
 		(?<str> "(\\\\|\\"|[^\n])*") |
 		
@@ -116,5 +174,6 @@ sub error {
 	my ($self, $s) = @_;
 	die "$self->{file}:$self->{line}: $s\n";
 }
+
 
 1;
