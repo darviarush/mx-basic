@@ -9,7 +9,7 @@ use Term::ReadLine;
 use Term::ANSIColor qw/colored RESET/;
 use Carp;
 $SIG{__DIE__} = sub { die($_[0] =~ /\n\z/? @_: Carp::confess(@_)) };
- 
+
 
 my $kon = Term::ReadLine::Gnu->new('SU-A');
 
@@ -23,7 +23,7 @@ my $prompt = RESET . colored($MARKER, "cyan");
 while ( defined (my $line = $kon->readline($prompt)) ) {
 
 	next if $line =~ /^\s*$/;
-	
+
 	$sua->make($line);
 }
 
@@ -45,32 +45,33 @@ sub new {
 # обрабатывает строку
 sub make {
 	my ($self, $line) = @_;
-	
+
 	my $rex = qr//;
-	
+
 	if($line =~ /^\d/) {	# строка
 		print("Откройте файл командой ", colored("o", "red bold"), colored("pen", "blue bold"), " «оператор» «класс»\n"), return if !$self->{open};
-		
+
 	}
 	elsif($line =~ /^\s*(o|open)\s+/) {
-		
+
 	}
 	elsif($line =~ /^\s*(n|new)\b/) {
 		return $self->error(colored("new", "green"), " сигнатура описание") if $line !~ /^\s*(n|new)\s+(\S+)\s*(.*)\s*$/;
 		my $x = $2; my $y = $3;
 		$self->to_signature($x);
-		my $path = "src/";
-		print "" if -e $path;
+		my $path = $self->{path};
+		return $self->error("") if -e $path;
 		open my $f, "<:utf8" or do { print "\n" };
+		
 	}
 	elsif($line =~ /^\s*(l|list)\s+/) {
-		
+
 	}
 	elsif($line =~ /^\s*(r|run)\s+/) {
-		
+
 	}
 	elsif($line =~ /^\s*(b|rebase)\s+/) {
-		
+
 	}
 	elsif($line =~ /^\s*(h|help|m|man)\s*$/) {
 		print "
