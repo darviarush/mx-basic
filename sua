@@ -55,9 +55,10 @@ sub make {
 	elsif($line =~ /^\s*(o|open)\s+/) {
 		
 	}
-	elsif($line =~ /^\s*(n|new)\s+(\S+)\s*$/) {
-		my $x = $2;
-		if($x =~ /^([a-z_]\w+)/)
+	elsif($line =~ /^\s*(n|new)\b/) {
+		return $self->error(colored("new", "green"), " сигнатура описание") if $line !~ /^\s*(n|new)\s+(\S+)\s*(.*)\s*$/;
+		my $x = $2; my $y = $3;
+		$self->to_signature($x);
 		my $path = "src/";
 		print "" if -e $path;
 		open my $f, "<:utf8" or do { print "\n" };
@@ -73,10 +74,10 @@ sub make {
 	}
 	elsif($line =~ /^\s*(h|help|m|man)\s*$/) {
 		print "
-	${\colored($MARKER, 'green')}new swap¤¤ — создать метод
-	${\colored($MARKER, 'white')}open swap¤¤ — открыть метод
-	${\colored($MARKER, 'magenta')}open [-]% — открыть оператор
-	${\colored($MARKER, 'green')}new [-]%4 — создать оператор с приоритетом 4
+	${\colored($MARKER, 'green')}new ¤swap¤ описание — создать метод
+	${\colored($MARKER, 'white')}open ¤swap — открыть метод
+	${\colored($MARKER, 'magenta')}open [-]% — открыть оператор -int, соответственно: %[-]% и %[-], это 
+	${\colored($MARKER, 'green')}new [-]%4 описание — создать оператор с приоритетом 4
 	${\colored($MARKER, 'yellow')}open % — открыть конструктор
 	
 	${\colored($MARKER, 'yellow')}inherit % from # — наследовать класс % от #
@@ -89,6 +90,21 @@ sub make {
 		print colored("?", "red"), "\n";
 	}
 }
+
+# Установить путь по сигнатуре
+sub to_signature {
+	my ($self, $sig) = @_;
+	$sig =~ //;
+	$self
+}
+
+# Ошибка
+sub error {
+	my $self = shift;
+	print @_, "\n";
+	$self
+}
+
 
 # Компилирует файл или участок кода
 package Sua::Compile;
