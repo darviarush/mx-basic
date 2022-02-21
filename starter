@@ -1,16 +1,16 @@
 #!/bin/bash
 
-./sua &
-modify="`stat sua -c %y`"
+make &
+modify="`stat mx.c -c %y`"
 
 while true; do
 	sleep 1
-	modify2="`stat sua -c %y`"
+	modify2="`stat mx.c -c %y`"
 	ps=`jobs -p`
 	if [ "$modify2" != "$modify" ]; then
 		kill -9 $ps &> /dev/null
 		wait $ps
-		./sua &
+		make &
 		modify="$modify2"
 		echo
 	fi
