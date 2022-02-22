@@ -81,10 +81,9 @@ char* mx_gets() {
 
 void mx_save_line() {
 	FILE* f = fopen(file, "rb");
-	if(f) {
-		char buf[1024*1024];
-		while(fgets(f, buf, sizeof(buf))) fprintf(o, "%s", buf);
-	}
+	if(!f) { fprintf(stderr, "Нет такого.\n"); return; }
+	char buf[1024*1024];
+	while(fgets(f, buf, sizeof(buf))) fprintf(o, "%s", buf);
 }
 
 void mx_command() {
