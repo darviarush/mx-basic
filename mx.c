@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +47,9 @@
 #define ON_LWHITE		"\033[107m"
 
 
+#define asf(FMT, ARGS...)		({ char* s; asprintf(&s, FMT, ARGS); s })
+
+
 static char *_read_line = NULL;
 static char *line = NULL;
 static char *file = NULL;
@@ -79,16 +84,107 @@ char* mx_gets() {
   	return line;
 }
 
+
+#define BUFSIZE		1024*1024
 void mx_save_line() {
+	if(!file) { fprintf(stderr, "Откройте метод командой "WHITE"o"MAGENTA"pen "CYAN"<signature>"END".\n"); return; }
+	
+	int lineno = atoi(line);
+	int size = strlen(line);
+	if(BUFSIZE-1 < size) { fprintf(stderr, "Записываемая строка слишком велика.\n"); return; }
+
 	FILE* f = fopen(file, "rb");
-	if(!f) { fprintf(stderr, "Нет такого.\n"); return; }
-	char buf[1024*1024];
-	while(fgets(f, buf, sizeof(buf))) fprintf(o, "%s", buf);
+	if(!f) { fprintf(stderr, "Нет файла %s.\n", file); return; }
+	char buf[BUFSIZE]; 	// буффер ввода
+
+	/***
+		1. дойти до нужной строки
+		2. открыть на запись и перейти к началу строки
+		3. скачать блок больше записываемой строки
+		4. записать строку и пол блока
+		5. заменить пол блока на незаписанный и загрузить ещё пол блока
+		6. менять их местами до конца файла
+
+		Такой алгоритм позволит редактировать очень большие файлы без расхода прамяти... но ждать всё равно придётся.
+		С другой стороны, это позволит быстрее, без обнаружения конца строки, перекачать конец файла.
+	***/
+
+	int pos = 0;
+	while( fgets(buf, BUFSIZE, f) ) {
+		int n = atoi(buf);
+		
+		if(lineno == n) { // заменяем строку: отбрасываем
+			line[0] = '\0';
+			break;
+		}
+		else if(n > lineno) {	// pos - в конец
+			pos += strlen(buf);
+			break;
+		}
+		pos = ftell(f);
+	}
+
+	// 2:
+	FILE* o = fopen(file, "ab");
+	fseek(o, pos, 0);
+	
+	int i = fread(buf, BUFSIZE, 1, f);
+	fprintf(o, "%s\n", line);
+	
+	while( i ) {
+		fwrite(buf, BUFSIZE, 1, o);
+		i = fread(buf, BUFSIZE, 1, f);
+	}
+	
+	fclose(f);
+	fclose(o);
+}
+
+void mx_set_file(char* s) {
+	if(file) free(file);
+	file = strdup(s);
+}
+
+char* is_command(char* commands[]) {
+	char* s = line;
+	while(*commands) {
+		char* p = *commands++;
+		while(*s && *s == *p) { s++; p++; }
+		if(*p == '\0' && isspace(*s)) {
+			while( *s && isspace(*s) ) s++;
+			return s;
+		} 
+	}
+	return NULL;
 }
 
 void mx_command() {
-	if(isnum(*line)) {
+	char* s;
+	
+	if( isdigit(*line) ) {
 		mx_save_line();
+	}
+	else if( s = is_command({"n", "new", NULL}) ) {
+		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
+
+		FILE* f = fopen(s, "a");
+		if(!f) { perror(RED "?" END); return; }
+		
+		mx_set_file(s);
+		
+		printf(RED "Ok" END "\n");
+	}
+	else if( s = is_command({"o", "open", NULL}) ) {
+		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
+
+		FILE* f = fopen(s, "r");
+		if(!f) { fprintf(stderr, "Нет файла.\n"); return; }
+		
+		mx_set_file(s);
+		
+		// жест "ок": 👌
+		// ок в квадрате 🆗
+		printf(RED "Ok" END "\n");
 	}
 	else {
 		printf(RED "?" END "\n");
@@ -96,9 +192,8 @@ void mx_command() {
 }
 
 int main() {
-	while(mx_gets()) {
-		mx_command();
-	}
+	while( mx_gets() ) mx_command();
+
 	mx_free();
 	return 0;
 }
