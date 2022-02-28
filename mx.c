@@ -145,7 +145,7 @@ void mx_set_file(char* s) {
 	file = strdup(s);
 }
 
-char* is_command(char* commands[]) {
+char* is_command(char** commands) {
 	char* s = line;
 	while(*commands) {
 		char* p = *commands++;
@@ -158,13 +158,17 @@ char* is_command(char* commands[]) {
 	return NULL;
 }
 
+char* _new_command[] = {"n", "new", NULL};
+char* _open_command[] = {"o", "open", NULL};
+
 void mx_command() {
 	char* s;
+	
 	
 	if( isdigit(*line) ) {
 		mx_save_line();
 	}
-	else if( s = is_command({"n", "new", NULL}) ) {
+	else if( s = is_command(_new_command) ) {
 		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
 
 		FILE* f = fopen(s, "a");
@@ -174,7 +178,7 @@ void mx_command() {
 		
 		printf(RED "Ok" END "\n");
 	}
-	else if( s = is_command({"o", "open", NULL}) ) {
+	else if( s = is_command(_open_command) ) {
 		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
 
 		FILE* f = fopen(s, "r");
