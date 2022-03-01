@@ -55,7 +55,7 @@ static char *line = NULL;
 static char *file = NULL;
 
 //static char *prompt = CYAN "🐈" END;
-static char *prompt = CYAN "\xf0\x9f\x90\x88" END;
+static char *prompt = CYAN "\xf0\x9f\x90\x88 " END;
 
 
 
@@ -92,12 +92,10 @@ void mx_save_line() {
 	
 	int lineno = atoi(line);
 	
-	printf("lineno=%i\n", lineno);
-	
 	int size = strlen(line);
 	if(BUFSIZE-1 < size) { fprintf(stderr, "Записываемая строка слишком велика.\n"); return; }
 
-	FILE* f = fopen(file, "rb");
+	FILE* f = fopen(file, "rb+");
 	if(!f) { fprintf(stderr, "Нет файла %s.\n", file); return; }
 	char buf[BUFSIZE]; 	// буффер ввода
 
@@ -113,28 +111,32 @@ void mx_save_line() {
 		С другой стороны, это позволит быстрее, без обнаружения конца строки, перекачать конец файла.
 	***/
 
-	int pos = 0;
+	long int pos = 0;
 	while( fgets(buf, BUFSIZE, f) ) {
 		int n = atoi(buf);
 		
-		printf("n in file=%i\n", n);
-		
-		if(lineno == n) { // заменяем строку: отбрасываем
-			line[0] = '\0';
+		if(lineno == n) {
 			break;
 		}
 		else if(n > lineno) {	// pos - в конец
+			pos = ftell(f);
 			break;
 		}
 		pos = ftell(f);
 	}
 
 	// 2:
-	FILE* o = fopen(file, "ab");
-	fseek(o, pos, 0);
+	// FILE* o = fopen(file, "ab");
+	// int res = fseek(o, pos, SEEK_SET);
+	// if(res != 0) { perror(RED"fseek"END); return; }
+	
+	printf("%s:%i: pos=%li ftell=%li\n", file, lineno, pos, ftell(f));
 	
 	int i = fread(buf, BUFSIZE, 1, f);
-	fprintf(o, "%s\n", line);
+	long int next = i;
+	
+	fseek(f, pos, SEEK_SET)
+	fprintf(f, "%s\n", line);
 	
 	while( i ) {
 		fwrite(buf, BUFSIZE, 1, o);
@@ -182,7 +184,7 @@ void mx_list(char* s) {
 	if(*s == '-') { s++; to = maybe_uint(&s); if(to == -1) to = 2147483647; }
 	
 	if(*s != '\0') { fprintf(stderr, RED"??"END"\n"); return; }
-			
+
 	FILE* f = fopen(file, "rb");
 	if(!f) { perror(RED"use: open file"END); return; }
 
