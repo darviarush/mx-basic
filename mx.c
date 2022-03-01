@@ -54,7 +54,8 @@ static char *_read_line = NULL;
 static char *line = NULL;
 static char *file = NULL;
 
-static char *prompt = CYAN "🐈" END;
+//static char *prompt = CYAN "🐈" END;
+static char *prompt = CYAN "\xf0\x9f\x90\x88" END;
 
 
 
@@ -90,6 +91,9 @@ void mx_save_line() {
 	if(!file) { fprintf(stderr, "Откройте метод командой "WHITE"o"MAGENTA"pen "CYAN"<signature>"END".\n"); return; }
 	
 	int lineno = atoi(line);
+	
+	printf("lineno=%i\n", lineno);
+	
 	int size = strlen(line);
 	if(BUFSIZE-1 < size) { fprintf(stderr, "Записываемая строка слишком велика.\n"); return; }
 
@@ -113,12 +117,13 @@ void mx_save_line() {
 	while( fgets(buf, BUFSIZE, f) ) {
 		int n = atoi(buf);
 		
+		printf("n in file=%i\n", n);
+		
 		if(lineno == n) { // заменяем строку: отбрасываем
 			line[0] = '\0';
 			break;
 		}
 		else if(n > lineno) {	// pos - в конец
-			pos += strlen(buf);
 			break;
 		}
 		pos = ftell(f);
@@ -146,20 +151,53 @@ void mx_set_file(char* s) {
 }
 
 char* is_command(char** commands) {
-	char* s = line;
 	while(*commands) {
+		char* s = line;
 		char* p = *commands++;
+		
 		while(*s && *s == *p) { s++; p++; }
-		if(*p == '\0' && isspace(*s)) {
-			while( *s && isspace(*s) ) s++;
-			return s;
-		} 
+		
+		if( *p != '\0' ) continue;
+		if( isalpha(*s) ) continue;
+		
+		while( *s && isspace(*s) ) s++;
+
+		return s;
 	}
 	return NULL;
 }
 
+int maybe_uint(char** f) {
+	char *s = *f;
+	while( isdigit(*s) ) s++;
+	int x = -1;
+	if(s != *f) x = atoi(*f);
+	*f = s;
+	return x;
+}
+
+void mx_list(char* s) {
+	// формат l10-20, l -30, l 40
+	int from = maybe_uint(&s), to = 2147483647;
+	if(*s == '-') { s++; to = maybe_uint(&s); if(to == -1) to = 2147483647; }
+	
+	if(*s != '\0') { fprintf(stderr, RED"??"END"\n"); return; }
+			
+	FILE* f = fopen(file, "rb");
+	if(!f) { perror(RED"use: open file"END); return; }
+
+	char buf[BUFSIZE];
+	
+	while( fgets(buf, BUFSIZE, f) ) {
+		int i = atoi(buf);
+		if(i > to) break;
+		if(i >= from) printf("%s", buf);
+	}
+}
+
 char* _new_command[] = {"n", "new", NULL};
 char* _open_command[] = {"o", "open", NULL};
+char* _list_command[] = {"l", "list", NULL};
 
 void mx_command() {
 	char* s;
@@ -168,15 +206,18 @@ void mx_command() {
 	if( isdigit(*line) ) {
 		mx_save_line();
 	}
+	else if( s = is_command(_list_command) ) {
+		mx_list(s);
+	}
 	else if( s = is_command(_new_command) ) {
 		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
 
 		FILE* f = fopen(s, "a");
-		if(!f) { perror(RED "?" END); return; }
+		if(!f) { perror(RED"?"END); return; }
 		
 		mx_set_file(s);
 		
-		printf(RED "Ok" END "\n");
+		printf(RED"Ok"END"\n");
 	}
 	else if( s = is_command(_open_command) ) {
 		if(!*s) { fprintf(stderr, "Нет сигнатуры.\n"); return; }
