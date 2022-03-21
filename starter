@@ -1,16 +1,16 @@
 #!/bin/bash
 
-make &
-modify="`stat mx.c -c %y`"
+./mx-basic &
+modify="`stat mx-basic -c %y`"
 
 while true; do
 	sleep 1
-	modify2="`stat mx.c -c %y`"
+	modify2="`stat mx-basic -c %y`"
 	ps=`jobs -p`
 	if [ "$modify2" != "$modify" ]; then
-		kill -9 $ps &> /dev/null
+		kill -9 $ps #&> /dev/null
 		wait $ps
-		make &
+		./mx-basic &
 		modify="$modify2"
 		echo
 	fi

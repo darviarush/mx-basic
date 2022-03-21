@@ -68,7 +68,7 @@ void mx_free() {
 char* mx_trim(char* s) {
 	while(isspace(*s)) s++;
 	char* m = s+strlen(s)-1;
-	if(m>s) { while(isspace(*m)) m--; m[1] = '\0'; }
+	if(m > s) { while(isspace(*m)) m--; m[1] = '\0'; }
 	return s;
 }
 
@@ -109,37 +109,50 @@ void mx_save_line() {
 
 		Такой алгоритм позволит редактировать очень большие файлы без расхода прамяти... но ждать всё равно придётся.
 		С другой стороны, это позволит быстрее, без обнаружения конца строки, перекачать конец файла.
+		
+		10 x
+		20 y
+		
+		1. insert line - pos -= length line
+		
+		10 x
+		15 к
+		20 y
+		
+		2. replace line - 
+		
+		10 y
+		20 y
 	***/
 
-	long int pos = 0;
+	FILE* o = fopen(file, "rb+");
+	if(!o) { perror(RED"open file"END); return; }
+	fseek(o, 0, SEEK_END);
+	
 	while( fgets(buf, BUFSIZE, f) ) {
 		int n = atoi(buf);
 		
-		if(lineno == n) {
+		if(lineno == n) {		// заменить строку
+			long int x = strlen(buf);
+			fseek(o, ftell(f) - x, SEEK_SET);	// вставляем на строку назад
+			// читаем c текущего места
 			break;
 		}
-		else if(n > lineno) {	// pos - в конец
-			pos = ftell(f);
+		else if(n > lineno) {					// вставить строку
+			long int x = strlen(buf);
+			fseek(o, ftell(f) - x, SEEK_SET);	// вставляем на строку назад
+			fseek(f, x, SEEK_CUR); 				// читаем на строку назад
 			break;
 		}
-		pos = ftell(f);
 	}
 
 	// 2:
-	// FILE* o = fopen(file, "ab");
-	// int res = fseek(o, pos, SEEK_SET);
-	// if(res != 0) { perror(RED"fseek"END); return; }
-	
-	printf("%s:%i: pos=%li ftell=%li\n", file, lineno, pos, ftell(f));
 	
 	int i = fread(buf, BUFSIZE, 1, f);
-	long int next = i;
-	
-	fseek(f, pos, SEEK_SET)
-	fprintf(f, "%s\n", line);
+	fprintf(o, "%s\n", line);
 	
 	while( i ) {
-		fwrite(buf, BUFSIZE, 1, o);
+		fwrite(buf, i, 1, o);
 		i = fread(buf, BUFSIZE, 1, f);
 	}
 	
