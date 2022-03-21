@@ -80,7 +80,7 @@ sub method_get {
 
 sub method_file {
 	my ($class, $method, @args) = @_;
-	return "$class/\$" if !defined $method;
+	return "$class/:" if !defined $method;
 	"$class/$method@args"
 }
 
