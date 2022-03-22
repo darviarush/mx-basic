@@ -11,7 +11,6 @@ my $prompt = RESET. CYAN. "🐈". RESET;
 my $base = "src";
 my $FILE = undef;
 
-
 my %ACT = (
 	"help" => "[раздел]	Помощь",
 	"new" =>  "название	Создать метод",
@@ -19,23 +18,33 @@ my %ACT = (
 	"list" => "[от][-до]	Список строк",
 );
 
-while ( defined($_ = $term->readline($prompt)) ) {
-	next if /^\s*$/;
+if(@ARGV) {
+	runline(join " ", @ARGV);
+	exit;
+}
 
-	if( /^(\d+)/ ) { save_line();	next; }
+while ( defined(my $line = $term->readline($prompt)) ) {
+	runline($line);
+}
+
+sub runline {
+	local ($_) = @_;
+	return if /^\s*$/;
+
+	if( /^(\d+)/ ) { save_line(); return; }
 
 	for my $act (sort keys %ACT) {
 		my $act_first = substr $act, 0, 1;
-		if(/^($act_first|$act)(?:[^a-zA-Z]|$)/) {
+		if( /^($act_first|$act)(?:[^a-zA-Z]|$)/ ) {
+			
 			eval { &{"${act}_act"}(); };
 			print RED, "$@", RESET, $@ =~ /\n$/? (): "\n" if $@;
-			goto NEXT;
+			
+			return;
 		}
 	}
 
 	print RED, "?", RESET, "\n";
-
-	NEXT:;
 }
 
 sub help_act {
