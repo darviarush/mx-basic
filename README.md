@@ -5,12 +5,13 @@
 # SPECIFICATION
 
 ```basic
-
+$ mx
+o 
 ```
 
 # DESCRIPTION
 
-`mx-basic` — .
+`mx-basic` .
 
 # DEPENDENCIES
 

@@ -1,0 +1,190 @@
+#!/usr/bin/env perl
+
+use common::sense;
+use File::Slurper qw/read_text write_text/;
+
+use lib '.';
+use Lex;
+
+my $code = << "END";
+10 FOR i=1 TO 10 STEP 2
+20 print "i =", i
+30 NEXT i
+END
+
+my $ctx = {};
+my $c_code = join "", map linecompile($_, $ctx), grep {length $_} split /\n/, $code;
+
+print $c_code;
+
+write_text("ex.c", $c_code);
+
+=pod
+АЛГОРИТМ
+
+1. Выделяем текст в скобках.
+2. Определяем оператор c максимальным приоритетом и берём в скобки левую и правую часть, если он бинарный.
+3. Если оператор унарный, то сводим только одну сторону.
+
+a+b*c-x = 
+
+=cut
+
+my $optab = "
+	a$ a! a#
+	-a
+
+	a^b
+	a*b a/b
+	a+b a-b
+
+	a=b a<>b a≠b a<b a>b a<=b a≤b a>=b a≥b
+	
+	not.a
+	a.and.b
+	a.or.b    a.xor.b
+";
+my %prio;
+{
+	my @OPLINES = grep {!/^\s*$/} split /\n/, $optab;
+	my $i = 0;
+	for my $line (@OPLINES) {
+		$i++;
+		my @op = grep {!/^\s*$/} split /\s+/, $line;
+		for my $op (@op) {
+			my $fix;
+			$fix = "infix" if $op =~ s/^a\b(.*)\bb$/$1/x;
+			$fix = "prefix" if $op =~ s/^(.*)\ba$/$1/x;
+			$fix = "postfix" if $op =~ s/^a\b(.*)$/$1/x;
+			
+			die "Не распознан оператор $op" if !$fix;
+			
+			$op =~ s/^\.(\w+)\.$/$1/;
+			
+			$prio{$op} = $i;
+		}
+	}
+}
+
+# Компиллятор
+sub linecompile {
+	my ($code, $ctx) = @_;
+	
+	# 0. Лексический анализ и выделение скобок
+	my $re = qr{
+		(?<label> ^\d+) |
+		
+		(?<float> \d*\.\d+) |
+		(?<int> \d+) |
+		(?<str> "(\\"|[^"])*") |
+		(?<word> [a-z]\w+) |
+		(?<var> [a-z]) |
+		
+		(?<open> [\{\(\[]) |
+		(?<close> [\}\)\]]) |
+		
+		(?<op> [+\-*/]) |
+		
+		(?<space> \s+)
+	}xi;
+	
+	my @S = my $root = Lex->new(
+		pos => 1,
+		lex => "line",
+		str => $code,
+	);
+	my @brace;
+	my %REVERSE = qw/{ } [ ] ( )/;
+	my @A; # скобки
+	
+	while($code =~ /$re/go) {
+		my $pos = 1 + length $`;
+		
+		my ($key, $val) = %+;
+		
+		my $lex = Lex->new(
+			pos => $pos, 
+			lex => $key,
+			str => $&,
+		);
+		
+		if(exists $+{open}) {
+			push @S, $lex;
+			push @brace, $REVERSE{$+{open}};
+			push @A, $lex->args;
+		}
+		elsif(exists $+{close}) {
+			
+			die "$pos: Закрывающая скобка $+{close} без открывающей" if !@brace;
+			my $y = pop @brace;
+			die "$pos: Должна быть скобка $y, а пришла $+{close}" if $y ne $+{close};
+			
+			my $x = pop @S;
+			push @{$S[$#S]->args}, $x;
+		}
+		else {
+			push @{$S[$#S]->args}, $lex;
+		}
+	}
+	
+	die "Остались незакрытые скобки: " .join ", ", @brace if @brace;
+	die "Осталось несколько нод" if @S != 1;
+	
+	# 2. Расставляем скобки между операторами
+	for my $sk (@A) {
+		my @S; my @T;
+		
+		for my $lex (@$sk) {
+			
+		}
+	}
+		
+	# 3. Обходим дерево и формируем код
+	line_to_c($root);
+}
+
+# Строка
+sub line_to_c {
+	my ($root) = @_;
+	my @args = @{$root->args};
+	my $n = shift @args;
+	die "Строка не начинается на номер " . $root->str if $n->lex ne "label";
+	my @R =	"_${\$n->str}: ";
+	
+	if(@args == 0 or @args == 1 and $args[0]->lex eq "space") {}
+	elsif($args[0]->str =~ /^FOR$/) {
+		
+	}
+	elsif($args[0]->lex eq "word") {	# say a to b [as z]
+		# через разделители
+		my @name; my @arg;
+		for(my $i=0; $i<@args; $i++) {
+			if($args[$i]->lex !~ /^(word|,|;)$/) {
+				push @name, $args[$i]->str if $args[$i]->lex eq "word";
+				push @arg, $args[$i+1];
+			} else {
+				die "Не распознано " . $root->str;
+			}
+			
+			my $name = join "__", @name;
+			push @R, "$name(", (map { to_c($_) } @arg), ")";
+		}
+	}
+	else {
+		die "Не распознано " . $root->str;
+	}
+	
+	
+	join "", @R, ";\n";
+}
+
+
+# Формирует код Си
+sub to_c {
+	my ($lex) = @_;
+	
+	$lex->lex eq "label"? "L${\$lex->str}: ":
+	$lex->lex eq "space"? $lex->str:
+	
+	join "", $lex->str, "(", (map to_c($_), @{$lex->args}), ")";
+}
